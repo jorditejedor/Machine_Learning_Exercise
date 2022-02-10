@@ -1,0 +1,91 @@
+---
+title: "Machine Learning Final Exercise"
+author: "Jordi Tejedor"
+date: "2/9/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(caret)
+```
+
+## Upload data
+
+Load of previously downloaded data
+
+```{r }
+training <- read.csv("data/pml-training.csv")
+testing <- read.csv("data/pml-testing.csv")
+```
+
+## Cleaning data
+
+After reviewing data I detected that some columns in training and test files have a lot of NA values.
+
+In fact in the case of the test file it's worse, as some variables have all the values to NA. As these variables won't be useful for the final prediction I decided to remove them from both files.
+
+```{r }
+na<-colSums(is.na(testing))==nrow(testing)
+
+training <- training[,!na]
+testing <- testing[,!na]
+```
+The remaining data has `r ncol(testing)` variables
+
+I also decided to remove the variables that have near zero variance as won't be too much useful in our prediction model.
+
+```{r }
+nzv <- nearZeroVar(training)
+
+training <- training[,-nzv]
+testing <- testing[,-nzv]
+```
+
+In this case only `r length(nzv)` was removed
+
+I also removed the sixth first columns, as they only included sequential data, that is not relevant for the prediction
+
+```{r }
+training<-training[,-c(1:6)]
+```
+
+## Training data
+
+In order to train the model I used a similar method than the one described by the authors in the dataset website.
+
+In my case I only considered a random forest with a 10-fold cross-validation, and let the caret package to setup by default the other tuning parameters
+
+```{r }
+
+set.seed(12345)
+
+#define cross validation
+control <- trainControl(method="cv",number=10)
+
+#training
+startTime <- Sys.time()
+modRF<-train(classe ~ . ,data=training, method="rf",trControl=control)
+endTime <- Sys.time()
+
+print(endTime - startTime)
+
+print(modRF)
+
+```
+Training took a `r endTime-startTime` time and got an accuracy of `r modRF$results$Accuracy[1]`
+
+As you can see looking at the Confusion Matrix all training examples where correctly classified by the model
+
+```{r }
+prediction<-predict(modRF,training)
+confusionMatrix(as.factor(training$classe),prediction)
+```
+
+## Prediction
+
+The prediction of testing values is
+
+```{r }
+predict(modRF,testing)
+```
